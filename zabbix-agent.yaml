@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zabbix-agent-config
+  namespace: kube-system
+data:
+  zabbix_agentd.conf: |
+    LogFile=/dev/stdout
+    LogFileSize=0
+    Server=zabbix
+    ServerActive=127.0.0.1
+    Timeout=10
+    Include=/etc/zabbix/zabbix_agentd.d/*.conf
+    Hostname=Zabbix server
+
+---
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: zabbix-agent
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app: zabbix-agent
+  template:
+    metadata:
+      labels:
+        app: zabbix-agent
+    spec:
+      hostNetwork: true
+      hostPID: true
+
+      containers:
+      - name: zabbix-agent
+        command: [ "/bin/sh" ]
+        args: [ "-c", "chown zabbix /dev/stdout; exec runuser -u zabbix -p -- /usr/sbin/zabbix_agentd -f -c /config/zabbix_agentd.conf" ]
+        image: kvaps/zabbix-agent
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: zabbix-agent-config
+          mountPath: "/config"
+
+      volumes:
+        - name: zabbix-agent-config
+          configMap:
+            name: zabbix-agent-config
+
+
+
+
